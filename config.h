@@ -58,7 +58,7 @@ static const char *symbol_2 = ">";
 #endif // SYMBOLS_PATCH
 
 #if ALPHA_PATCH
-static const unsigned int baralpha = 0xd0;
+static const unsigned int baralpha = 0xaa;
 static const unsigned int borderalpha = OPAQUE;
 static const unsigned int alphas[][3]      = {
 	/*               fg      bg        border     */
@@ -100,9 +100,9 @@ const
 #endif // XRESOURCES_PATCH
 char *colors[][2] = {
 	/*               fg         bg       */
-	[SchemeNorm] = { "#bbbbbb", "#222222" },
-	[SchemeSel]  = { "#eeeeee", "#005577" },
-	[SchemeOut]  = { "#000000", "#00ffff" },
+	[SchemeNorm] = { "#efefef", "#1f1f1f" },
+	[SchemeSel]  = { "#efefef", "#000000" },
+	[SchemeOut]  = { "#efefef", "#1f1f1f" },
 	#if BORDER_PATCH
 	[SchemeBorder] = { "#000000", "#005577" },
 	#endif // BORDER_PATCH
