@@ -19,6 +19,13 @@
  */
 #define BORDER_PATCH 0
 
+/* The caret scheme patch, a.k.a. colored caret patch, adds the option to change the color
+ * of the caret via the SchemeCaret color scheme.
+ *
+ * https://tools.suckless.org/dmenu/patches/colored-caret/
+ */
+#define CARET_SCHEME_PATCH 0
+
 /* By default the caret in dmenu has a width of 2 pixels. This patch makes that configurable
  * as well as overridable via a command line option.
  * https://github.com/DarkSamus669/dmenu-patches/blob/main/dmenu-caretwidth-5.2.diff
@@ -40,6 +47,12 @@
  * By default dmenu only supports Ctrl+y and Ctrl+Shift+y to paste.
  */
 #define CTRL_V_TO_PASTE_PATCH 0
+
+/* This patch dyamically changes the size of the dmenu window based on how many items are
+ * drawn in a vertical view. For this to work set a higher maximum of lines, e.g. -l 500.
+ * https://gist.github.com/mircodz/1d9b88db958089bb08adbf45eb53b66f
+ */
+#define DYNAMIC_HEIGHT_PATCH 0
 
 /* This patch adds a flag (-dy) which makes dmenu run the command given to it whenever input
  * is changed with the current input as the last argument and update the option list according
@@ -282,6 +295,12 @@
  */
 #define PRINTINPUTTEXT_PATCH 0
 
+/* This patch adds a flag (-q) which makes dmenu not show any items if the search string is
+ * empty.
+ * https://github.com/baskerville/dmenu_qxyw/blob/master/dmenu_qxyw-hg.diff
+ */
+#define QUIET_PATCH 0
+
 /* This patch adds a new flag to dmenu with which text input will be rejected if it would
  * result in no matching item.
  * https://tools.suckless.org/dmenu/patches/reject-no-match/
@@ -343,6 +362,19 @@
  * https://tools.suckless.org/dmenu/patches/vertfull/
  */
 #define VERTFULL_PATCH 0
+
+/* This patch adds basic vi mode capabilities to dmenu.
+ *   - movements inside typed text with [h|l|w|b|e|0|$]
+ *   - movements through list with [j|k|g|G|C-d|C-u]
+ *   - standard insertions with [a|A|i|I]
+ *   - paste after|before cursor with [p|P], use ctrl to use clipboard
+ *   - delete from cursor to eol with D
+ *   - delete the character under cursor with x
+ *   - Enter and Tab will work like normal
+ *
+ * https://tools.suckless.org/dmenu/patches/vi-mode/
+ */
+#define VI_MODE_PATCH 0
 
 /* Adds extended window manager hints such as _NET_WM_WINDOW_TYPE and _NET_WM_WINDOW_TYPE_DOCK.
  * https://github.com/Baitinq/dmenu/blob/master/patches/dmenu-wm_type.diff
