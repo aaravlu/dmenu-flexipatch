@@ -1,5 +1,5 @@
-Similar to [dwm-flexipatch](https://github.com/bakkeby/dwm-flexipatch) this dmenu 5.4 (8b48986,
-2025-09-29) project has a different take on patching. It uses preprocessor directives to decide
+Similar to [dwm-flexipatch](https://github.com/bakkeby/dwm-flexipatch) this dmenu 5.4 (7175c48,
+2026-01-28) project has a different take on patching. It uses preprocessor directives to decide
 whether or not to include a patch during build time. Essentially this means that this build, for
 better or worse, contains both the patched _and_ the original code. The aim being that you can
 select which patches to include and the build will contain that code and nothing more.
@@ -27,6 +27,8 @@ Browsing patches? There is a [map of patches](https://coggle.it/diagram/YjT2DD6j
 ---
 
 ### Changelog:
+
+2025-11-29 - Added the bidi patch
 
 2025-10-16 - Added the dynamic height and quiet patches
 
@@ -84,6 +86,9 @@ Browsing patches? There is a [map of patches](https://coggle.it/diagram/YjT2DD6j
    - [barpadding](https://github.com/bakkeby/patches/wiki/barpadding)
       - adds padding for dmenu in similar fashion to the [barpadding](https://dwm.suckless.org/patches/barpadding/)
         patch for dwm
+
+   - [bidi](https://tools.suckless.org/dmenu/patches/bidi/)
+      - adds support for Right-To-Left (RTL) languages, such as Hebrew, Arabic, and Farsi
 
    - [border](http://tools.suckless.org/dmenu/patches/border/)
       - adds a border around the dmenu window

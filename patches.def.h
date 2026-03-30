@@ -13,6 +13,18 @@
  */
 #define BARPADDING_PATCH 0
 
+/* This patch adds proper support for Right-To-Left (RTL) languages, such as Hebrew,
+ * Arabic, and Farsi.
+ *
+ * Texts combining both RTL and LTR languages are displayed correctly. This is
+ * achieved using the GNU FriBiDi library, which is an additional dependency for
+ * this patch.
+ *
+ * You need to uncomment the corresponding line in config.mk to use the fribidi library.
+ * https://tools.suckless.org/dmenu/patches/bidi/
+ */
+#define BIDI_PATCH 0
+
 /* This patch adds a border around the dmenu window. It is intended to be used with the center
  * or xyw patches, to make the menu stand out from similarly coloured windows.
  * http://tools.suckless.org/dmenu/patches/border/
@@ -225,15 +237,6 @@
  * Note that the pango patch is incompatible with the scroll patch and will result in
  * compilation errors if both are enabled.
  *
- * Note that the pango patch does not protect against the BadLength error from Xft
- * when color glyphs are used, which means that dmenu will crash if color emoji is used.
- *
- * If you need color emoji then you may want to install this patched library from the AUR:
- * https://aur.archlinux.org/packages/libxft-bgra/
- *
- * A long term fix for the libXft library is pending approval of this pull request:
- * https://gitlab.freedesktop.org/xorg/lib/libxft/-/merge_requests/1
- *
  * Known issue: not compatible with the scroll patch
  *
  * Also see:
@@ -375,6 +378,18 @@
  * https://tools.suckless.org/dmenu/patches/vi-mode/
  */
 #define VI_MODE_PATCH 0
+
+/* This patch adds an optional value to the -vi command line option introduced by the
+ * vi mode patch.
+ *
+ * With this we have the following command line options:
+ *   -vi   - enable vi mode, with start_mode setting determining insert or normal mode
+ *   -vi 0 - enable vi mode starting in insert mode
+ *   -vi 1 - enable vi mode starting in normal mode
+ *
+ * This patch is made by https://github.com/nimaaskarian
+ */
+#define VI_MODE_RUNTIME_STARTING_MODE_PATCH 0
 
 /* Adds extended window manager hints such as _NET_WM_WINDOW_TYPE and _NET_WM_WINDOW_TYPE_DOCK.
  * https://github.com/Baitinq/dmenu/blob/master/patches/dmenu-wm_type.diff

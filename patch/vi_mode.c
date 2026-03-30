@@ -106,7 +106,8 @@ vi_keypress(KeySym ksym, const XKeyEvent *ev)
 		break;
 	/* insertion */
 	case XK_a:
-		cursor = nextrune(+1);
+		if (text[cursor] != '\0')
+			cursor = nextrune(+1);
 		/* fallthrough */
 	case XK_i:
 		using_vi_mode = 0;
@@ -146,13 +147,25 @@ vi_keypress(KeySym ksym, const XKeyEvent *ev)
 	/* misc. */
 	case XK_Return:
 	case XK_KP_Enter:
-		puts((sel && !(ev->state & ShiftMask)) ? sel->text : text);
+		#if RESTRICT_RETURN_PATCH
+		if (restrict_return && (!sel || ev->state & (ShiftMask | ControlMask)))
+			break;
+		#endif // RESTRICT_RETURN_PATCH
+		#if !MULTI_SELECTION_PATCH
+		printcurrent(ev->state);
+		#endif // MULTI_SELECTION_PATCH
 		if (!(ev->state & ControlMask)) {
+			#if MULTI_SELECTION_PATCH
+			printselected(ev->state);
+			#endif // MULTI_SELECTION_PATCH
 			cleanup();
 			exit(0);
 		}
+		#if !MULTI_SELECTION_PATCH
 		if (sel)
 			sel->out = 1;
+		#endif // MULTI_SELECTION_PATCH
+		break;
 		break;
 	case XK_Tab:
 		if (!sel)

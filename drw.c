@@ -9,6 +9,10 @@
 #include "drw.h"
 #include "util.h"
 
+#if BIDI_PATCH && !PANGO_PATCH
+#include <fribidi.h>
+#endif //BIDI_PATCH
+
 #if !PANGO_PATCH || HIGHLIGHT_PATCH
 #define UTF_INVALID 0xFFFD
 
@@ -58,6 +62,30 @@ utf8len(const char *c)
 }
 #endif // HIGHLIGHT_PATCH
 #endif // PANGO_PATCH
+
+#if BIDI_PATCH && !PANGO_PATCH
+static char fribidi_text[BUFSIZ] = "";
+
+static void
+apply_fribidi(const char *str)
+{
+	FriBidiStrIndex len = strlen(str);
+	FriBidiChar logical[BUFSIZ];
+	FriBidiChar visual[BUFSIZ];
+	FriBidiParType base = FRIBIDI_PAR_ON;
+	FriBidiCharSet charset;
+
+	if (len == 0) {
+		fribidi_text[0] = 0;
+		return;
+	}
+
+	charset = fribidi_parse_charset("UTF-8");
+	len = fribidi_charset_to_unicode(charset, str, len, logical);
+	fribidi_log2vis(logical, len, &base, visual, NULL, NULL, NULL);
+	fribidi_unicode_to_charset(charset, visual, len, fribidi_text);
+}
+#endif //BIDI_PATCH
 
 Drw *
 #if ALPHA_PATCH
@@ -489,11 +517,17 @@ drw_text(Drw *drw, int x, int y, unsigned int w, unsigned int h, unsigned int lp
 		w -= lpad;
 	}
 
-	usedfont = drw->fonts;
 	if (!ellipsis_width && render)
 		ellipsis_width = drw_fontset_getwidth(drw, ellipsis);
 	if (!invalid_width && render)
 		invalid_width = drw_fontset_getwidth(drw, invalid);
+
+	#if BIDI_PATCH
+	apply_fribidi(text);
+	text = fribidi_text;
+	#endif // BIDI_PATCH
+
+	usedfont = drw->fonts;
 	while (1) {
 		ew = ellipsis_len = utf8err = utf8strlen = 0;
 		utf8str = text;

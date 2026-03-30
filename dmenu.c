@@ -17,6 +17,7 @@
 #include <X11/Xft/Xft.h>
 
 #include "patches.h"
+
 /* Patch incompatibility overrides */
 #if MULTI_SELECTION_PATCH
 #undef NON_BLOCKING_STDIN_PATCH
@@ -113,7 +114,7 @@ static char pipeout[8] = " | dmenu";
 static char *embed;
 #if SEPARATOR_PATCH
 static char separator;
-static int separator_greedy;
+static char * (*sepchr)(const char *, int);
 static int separator_reverse;
 #endif // SEPARATOR_PATCH
 static int bh, mw, mh;
@@ -205,6 +206,9 @@ static size_t nextrune(int inc);
 static void movewordedge(int dir);
 static void keypress(XKeyEvent *ev);
 static void paste(void);
+static void printitem(struct item *item);
+static void printtext(char *text);
+static void printcurrent(unsigned int state);
 #if ALPHA_PATCH
 static void xinitvisual(void);
 #endif // ALPHA_PATCH
@@ -280,6 +284,13 @@ cleanup(void)
 	#endif // INPUTMETHOD_PATCH
 	for (i = 0; i < SchemeLast; i++)
 		drw_scm_free(drw, scheme[i], 2);
+
+	#if NAVHISTORY_PATCH
+	savehistory();
+	cleanhistory();
+	restorebackupitems();
+	#endif // NAVHISTORY_PATCH
+
 	for (i = 0; items && items[i].text; ++i) {
 		#if SEPARATOR_PATCH
 		free(separator_reverse ? items[i].text_output : items[i].text);
@@ -288,6 +299,7 @@ cleanup(void)
 		#endif // SEPARATOR_PATCH
 	}
 	free(items);
+
 	#if HIGHPRIORITY_PATCH
 	for (i = 0; i < hplength; ++i)
 		free(hpitems[i]);
@@ -316,6 +328,7 @@ static int
 drawitem(struct item *item, int x, int y, int w)
 {
 	int r;
+
 	#if TSV_PATCH && !SEPARATOR_PATCH
 	char *text = item->stext;
 	#else
@@ -562,7 +575,11 @@ drawmenu(void)
 	if (using_vi_mode && text[0] != '\0') {
 		drw_setscheme(drw, scheme[SchemeCursor]);
 		char vi_char[] = {text[cursor], '\0'};
-		drw_text(drw, x + curpos, 0, TEXTW(vi_char) - lrpad, bh, 0, vi_char, 0);
+		drw_text(drw, x + curpos, 0, TEXTW(vi_char) - lrpad, bh, 0, vi_char, 0
+			#if PANGO_PATCH
+			, False
+			#endif // PANGO_PATCH
+		);
 	} else if (using_vi_mode) {
 		drw_rect(drw, x + curpos, 2, lrpad / 2, bh - 4, 1, 0);
 	} else
@@ -596,7 +613,7 @@ drawmenu(void)
 			#endif // PANGO_PATCH
 		);
 	}
-	#else
+	#else // !PASSWORD_PATCH
 	drw_text(drw, x, 0, w, bh, lrpad / 2, text, 0
 		#if PANGO_PATCH
 		, False
@@ -611,7 +628,11 @@ drawmenu(void)
 	if (using_vi_mode && text[0] != '\0') {
 		drw_setscheme(drw, scheme[SchemeCursor]);
 		char vi_char[] = {text[cursor], '\0'};
-		drw_text(drw, x + curpos, 0, TEXTW(vi_char) - lrpad, bh, 0, vi_char, 0);
+		drw_text(drw, x + curpos, 0, TEXTW(vi_char) - lrpad, bh, 0, vi_char, 0
+			#if PANGO_PATCH
+			, False
+			#endif // PANGO_PATCH
+		);
 	} else if (using_vi_mode) {
 		drw_setscheme(drw, scheme[SchemeNorm]);
 		drw_rect(drw, x + curpos, 2, lrpad / 2, bh - 4, 1, 0);
@@ -967,7 +988,7 @@ match(void)
 
 	#if INSTANT_PATCH
 	if (instant && matches && matches==matchend && !lsubstr) {
-		puts(matches->text);
+		printitem(matches);
 		cleanup();
 		exit(0);
 	}
@@ -1098,7 +1119,9 @@ keypress(XKeyEvent *ev)
 		case XK_p: expect("ctrl-p", ev); ksym = XK_Up;   break;
 		case XK_o: expect("ctrl-o", ev); break;
 		case XK_q: expect("ctrl-q", ev); break;
+		#if !NAVHISTORY_PATCH
 		case XK_r: expect("ctrl-r", ev); break;
+		#endif // NAVHISTORY_PATCH
 		case XK_s: expect("ctrl-s", ev); break;
 		case XK_t: expect("ctrl-t", ev); break;
 		case XK_k: expect("ctrl-k", ev); ksym = XK_Up; break;
@@ -1151,6 +1174,12 @@ keypress(XKeyEvent *ev)
 			                  utf8, utf8, win, CurrentTime);
 			return;
 		#endif // FZFEXPECT_PATCH | CTRL_V_TO_PASTE_PATCH
+		#if NAVHISTORY_PATCH
+		case XK_r:
+			togglehistoryitems();
+			match();
+			goto draw;
+		#endif // NAVHISTORY_PATCH
 		#if FZFEXPECT_PATCH
 		case XK_y: expect("ctrl-y", ev); /* paste selection */
 		#else
@@ -1320,82 +1349,11 @@ insert:
 			break;
 		#endif // RESTRICT_RETURN_PATCH
 		#if !MULTI_SELECTION_PATCH
-		#if PIPEOUT_PATCH
-		#if PRINTINPUTTEXT_PATCH
-		if (sel && (
-			(use_text_input && (ev->state & ShiftMask)) ||
-			(!use_text_input && !(ev->state & ShiftMask))
-		))
-		#else
-		if (sel && !(ev->state & ShiftMask))
-		#endif // PRINTINPUTTEXT_PATCH
-		{
-			if (sel->text[0] == startpipe[0]) {
-				strncpy(sel->text + strlen(sel->text),pipeout,8);
-				puts(sel->text+1);
-			}
-			#if PRINTINDEX_PATCH
-			if (print_index)
-				printf("%d\n", sel->index);
-			else
-			#if SEPARATOR_PATCH
-				puts(sel->text_output);
-			#else
-				puts(sel->text);
-			#endif // SEPARATOR_PATCH
-			#elif SEPARATOR_PATCH
-			puts(sel->text_output);
-			#else
-			puts(sel->text);
-			#endif // PRINTINDEX_PATCH | SEPARATOR_PATCH
-		} else {
-			if (text[0] == startpipe[0]) {
-				strncpy(text + strlen(text),pipeout,8);
-				puts(text+1);
-			}
-			puts(text);
-		}
-		#elif PRINTINPUTTEXT_PATCH
-		if (use_text_input) {
-			#if SEPARATOR_PATCH
-			puts((sel && (ev->state & ShiftMask)) ? sel->text_output : text);
-			#else
-			puts((sel && (ev->state & ShiftMask)) ? sel->text : text);
-			#endif // SEPARATOR_PATCH
-		#if PRINTINDEX_PATCH
-		} else if (print_index) {
-			printf("%d\n", (sel && !(ev->state & ShiftMask)) ? sel->index : -1);
-		#endif // PRINTINDEX_PATCH
-		} else {
-			#if SEPARATOR_PATCH
-			puts((sel && !(ev->state & ShiftMask)) ? sel->text_output : text);
-			#else
-			puts((sel && !(ev->state & ShiftMask)) ? sel->text : text);
-			#endif // SEPARATOR_PATCH
-		}
-		#elif PRINTINDEX_PATCH
-		if (print_index) {
-			printf("%d\n", (sel && !(ev->state & ShiftMask)) ? sel->index : -1);
-		} else {
-			#if SEPARATOR_PATCH
-			puts((sel && !(ev->state & ShiftMask)) ? sel->text_output : text);
-			#else
-			puts((sel && !(ev->state & ShiftMask)) ? sel->text : text);
-			#endif // SEPARATOR_PATCH
-		}
-		#elif SEPARATOR_PATCH
-		puts((sel && !(ev->state & ShiftMask)) ? sel->text_output : text);
-		#else
-		puts((sel && !(ev->state & ShiftMask)) ? sel->text : text);
-		#endif // PIPEOUT_PATCH | PRINTINPUTTEXT_PATCH | PRINTINDEX_PATCH
+		printcurrent(ev->state);
 		#endif // MULTI_SELECTION_PATCH
 		if (!(ev->state & ControlMask)) {
-			#if NAVHISTORY_PATCH
-			savehistory((sel && !(ev->state & ShiftMask))
-				    ? sel->text : text);
-			#endif // NAVHISTORY_PATCH
 			#if MULTI_SELECTION_PATCH
-			printsel(ev->state);
+			printselected(ev->state);
 			#endif // MULTI_SELECTION_PATCH
 			cleanup();
 			exit(0);
@@ -1505,6 +1463,74 @@ paste(void)
 	drawmenu();
 }
 
+static void
+printitem(struct item *item)
+{
+	if (!item)
+		return;
+
+	#if NAVHISTORY_PATCH
+	addhistoryitem(item);
+	#endif // NAVHISTORY_PATCH
+
+	#if PIPEOUT_PATCH
+	if (item->text[0] == startpipe[0]) {
+		strncpy(item->text + strlen(item->text),pipeout,8);
+		puts(item->text+1);
+		return;
+	}
+	#endif // PIPEOUT_PATCH
+
+	#if PRINTINDEX_PATCH
+	if (print_index) {
+		printf("%d\n", item->index);
+		return;
+	}
+	#endif // PRINTINDEX_PATCH
+
+	#if SEPARATOR_PATCH
+	puts(item->text_output);
+	#else
+	puts(item->text);
+	#endif // SEPARATOR_PATCH
+}
+
+static void
+printtext(char *text)
+{
+	if (!text || !strlen(text))
+		return;
+
+	#if NAVHISTORY_PATCH
+	addhistory(text);
+	#endif // NAVHISTORY_PATCH
+
+	#if PIPEOUT_PATCH
+	if (text[0] == startpipe[0]) {
+		strncpy(text + strlen(text),pipeout,8);
+		puts(text+1);
+		return;
+	}
+	#endif // PIPEOUT_PATCH
+
+	puts(text);
+}
+
+static void
+printcurrent(unsigned int state)
+{
+	#if PRINTINPUTTEXT_PATCH
+	if (sel && (use_text_input == !!(state & ShiftMask)))
+	#else
+	if (sel && !(state & ShiftMask))
+	#endif // PRINTINPUTTEXT_PATCH
+	{
+		printitem(sel);
+	} else {
+		printtext(text);
+	}
+}
+
 #if ALPHA_PATCH
 static void
 xinitvisual(void)
@@ -1578,8 +1604,7 @@ readstdin(void)
 		if (!(items[i].text = strdup(line)))
 			die("strdup:");
 		#if SEPARATOR_PATCH
-		if (separator && (p = separator_greedy ?
-			strrchr(items[i].text, separator) : strchr(items[i].text, separator))) {
+		if (separator && (p = sepchr(items[i].text, separator)) != NULL) {
 			*p = '\0';
 			items[i].text_output = ++p;
 		} else {
@@ -2156,6 +2181,17 @@ main(int argc, char *argv[])
 		#endif // CASEINSENSITIVE_PATCH
 		#if VI_MODE_PATCH
 		} else if (!strcmp(argv[i], "-vi")) {
+			#if VI_MODE_RUNTIME_STARTING_MODE_PATCH
+			if (i + 1 < argc) {
+				if (!strcmp(argv[i+1], "0")) {
+					start_mode = 0;
+					i++;
+				} else if (!strcmp(argv[i+1], "1")) {
+					start_mode = 1;
+					i++;
+				}
+			}
+			#endif // VI_MODE_RUNTIME_STARTING_MODE_PATCH
 			vi_mode = 1;
 			using_vi_mode = start_mode;
 			global_esc.ksym = XK_Escape;
@@ -2257,6 +2293,10 @@ main(int argc, char *argv[])
 			colors[SchemeSel][ColBg] = argv[++i];
 		else if (!strcmp(argv[i], "-sf"))  /* selected foreground color */
 			colors[SchemeSel][ColFg] = argv[++i];
+		else if (!strcmp(argv[i], "-ob"))  /* outline background color */
+			colors[SchemeOut][ColBg] = argv[++i];
+		else if (!strcmp(argv[i], "-of"))  /* outline foreground color */
+			colors[SchemeOut][ColFg] = argv[++i];
 		#if HIGHPRIORITY_PATCH
 		else if (!strcmp(argv[i], "-hb"))  /* high priority background color */
 			colors[SchemeHp][ColBg] = argv[++i];
@@ -2284,8 +2324,15 @@ main(int argc, char *argv[])
 			embed = argv[++i];
 		#endif // XRESOURCES_PATCH
 		#if SEPARATOR_PATCH
-		else if (!strcmp(argv[i], "-d") || /* field separator */
-				(separator_greedy = !strcmp(argv[i], "-D"))) {
+		else if (!strcmp(argv[i], "-d"))   /* field separator */
+		{
+			sepchr = strchr;
+			separator = argv[++i][0];
+			separator_reverse = argv[i][1] == '|';
+		}
+		else if (!strcmp(argv[i], "-D")) /* greedy field separator */
+		{
+			sepchr = strrchr;
 			separator = argv[++i][0];
 			separator_reverse = argv[i][1] == '|';
 		}
